@@ -48,44 +48,42 @@ sys_getpid(void)
 int
 sys_sbrk(void)
 {
-  int addr;
   int n;
-
   if (argint(0, &n) < 0)
     return -1;
 
   struct proc *p = myproc();
-  addr = p->sz;
+  int addr = p->sz;
   uint oldsz = p->sz;
   uint newsz = oldsz + n;
+
+  if (n < 0 && newsz > oldsz) return -1;
+  if (n > 0 && newsz < oldsz) return -1;
+  if (newsz >= KERNBASE) return -1;
+
+  int i;
+  for (i = 0; i < NPROC; i++) {
+    if (ppid[i] == p->pid)
+      break;
+  }
+  if (n > 0 && newsz >= KERNBASE - (pspage[i] + 2) * PGSIZE) return -1;
 
   if (n == 0)
     return addr;
 
   if (n > 0) {
-    int i;
-    for(i=0;i< NPROC; i++) {
-      if (ppid[i] == p->pid) {
-        break;
-      }
-    }
-
-    if(newsz >= KERNBASE - pspage[i] * PGSIZE) {
-      return -1;
-    }
-    p->sz += n;
-    switchuvm(p);
-    return addr;
-  }
-  
-  else{ // n < 0
-    if ((newsz = deallocuvm(p->pgdir, oldsz, newsz)) == 0) {
-      return -1;
-    }
+    p->oldsz = p->sz;
     p->sz = newsz;
-    switchuvm(p);
     return addr;
   }
+
+  if ((newsz = deallocuvm(p->pgdir, oldsz, newsz)) == 0) {
+    cprintf("Deallocating pages failed!\n");
+    return -1;
+  }
+
+  p->sz = newsz;
+  switchuvm(p);
   return addr;
 }
 

@@ -19,7 +19,6 @@ extern int ppid[];
 extern int pspage[];
 
 extern int mappages(pde_t *pgdir, void *va, uint size, uint pa, int perm);
-extern pte_t* walkpgdir(pde_t *pgdir, const void *va, int alloc);
 
 void
 tvinit(void)
@@ -87,17 +86,16 @@ trap(struct trapframe *tf)
             cpuid(), tf->cs, tf->eip);
     lapiceoi();
     break;
-  case T_PGFLT: {
+case T_PGFLT: {
   uint va = PGROUNDDOWN(rcr2());
   struct proc *p = myproc();
 
-  pte_t *pte = walkpgdir(p->pgdir, (void *)va, 0);
-  if (pte && (*pte & PTE_P)) {
+  if (va >= KERNBASE) {
+    p->killed = 1;
     break;
   }
 
-  if (va < p->sz) {
-  // 코드 섹션 메모리 할당
+  if (va >= p->oldsz && va < p->sz) {
     char *mem = kalloc();
     if (!mem) {
       p->killed = 1;
@@ -109,18 +107,15 @@ trap(struct trapframe *tf)
       p->killed = 1;
       break;
     }
-    switchuvm(p);
     break;
   }
 
-  // 스택 확장
   int i;
   for (i = 0; i < NPROC; i++) {
     if (ppid[i] == p->pid)
       break;
   }
-
-  if (va >= KERNBASE - (pspage[i] + 1) * PGSIZE && va < KERNBASE) {
+  if (va + PGSIZE < KERNBASE - pspage[i] * PGSIZE) {
     char *mem = kalloc();
     if (!mem) {
       p->killed = 1;
@@ -133,7 +128,6 @@ trap(struct trapframe *tf)
       break;
     }
     pspage[i]++;
-    switchuvm(p);
     break;
   }
 
