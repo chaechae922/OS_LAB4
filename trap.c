@@ -95,7 +95,7 @@ case T_PGFLT: {
     break;
   }
 
-  if (va >= p->oldsz && va < p->sz) {
+  if (va < p->sz + PGSIZE) {
     char *mem = kalloc();
     if (!mem) {
       p->killed = 1;
