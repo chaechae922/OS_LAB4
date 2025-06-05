@@ -91,12 +91,5 @@ kalloc(void)
     kmem.freelist = r->next;
   if(kmem.use_lock)
     release(&kmem.lock);
-
-  if (r)
-    memset((char*)r, 5, PGSIZE); // fill with junk
-  else
-    cprintf("kalloc: out of memory\n");
-
   return (char*)r;
 }
-

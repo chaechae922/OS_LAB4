@@ -428,68 +428,34 @@ exitwait(void)
 void
 mem(void)
 {
-	void *m1 = 0, *m2, *start;
-	uint cur = 0;
-	uint count = 0;
-	uint total_count;
-	int pid;
+  void *m1, *m2;
+  int pid, ppid;
 
-	printf(1, "mem test\n");
-
-	m1 = malloc(4096);
-	if (m1 == 0)
-		goto failed;
-	start = m1;
-
-	while (cur < TOTAL_MEMORY) {
-		m2 = malloc(4096);
-		if (m2 == 0)
-			goto failed;
-		*(char**)m1 = m2;
-		((int*)m1)[2] = count++;
-		m1 = m2;
-		cur += 4096;
-	}
-	((int*)m1)[2] = count;
-	total_count = count;
-
-	count = 0;
-	m1 = start;
-
-	while (count != total_count) {
-		if (((int*)m1)[2] != count)
-			goto failed;
-		m1 = *(char**)m1;
-		count++;
-	}
-
-	pid = fork();
-
-	if (pid == 0){
-		count = 0;
-		m1 = start;
-	
-		while (count != total_count) {
-			if (((int*)m1)[2] != count){
-				goto failed;
-			}
-			m1 = *(char**)m1;
-			count++;
-		}
-		exit();
-	}
-	else if (pid < 0)
-	{
-		printf(1, "fork failed\n");
-	}
-	else if (pid > 0)
-	{
-		wait();
-	}
-
-	printf(1, "mem ok\n");
-failed:
-	printf(1, "test failed!\n");
+  printf(1, "mem test\n");
+  ppid = getpid();
+  if((pid = fork()) == 0){
+    m1 = 0;
+    while((m2 = malloc(10001)) != 0){
+      *(char**)m2 = m1;
+      m1 = m2;
+    }
+    while(m1){
+      m2 = *(char**)m1;
+      free(m1);
+      m1 = m2;
+    }
+    m1 = malloc(1024*20);
+    if(m1 == 0){
+      printf(1, "couldn't allocate mem?!!\n");
+      kill(ppid);
+      exit();
+    }
+    free(m1);
+    printf(1, "mem ok\n");
+    exit();
+  } else {
+    wait();
+  }
 }
 
 // More file system tests
